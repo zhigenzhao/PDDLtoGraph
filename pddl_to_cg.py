@@ -39,5 +39,60 @@ def validator_available():
     """
     return tools.command_available(['validate', '-h'])
 
+def parse(domain_file, problem_file):
+    """ unmodified pyperplan function
+    Args:
+        domain_file: string domain filename
+        problem_file: string problem filename
+    Returns:
+        problem: pddl.Problem object
+    """
+
+    parser = Parser(domain_file, problem_file)
+    logging.info("Parsing Domain {0}".format(domain_file))
+    domain = parser.parse_domain()
+    logging.info('Parsing Problem {0}'.format(problem_file))
+    problem = parser.parse_problem(domain)
+
+    logging.debug(domain)
+    logging.info('{0} Predicates parsed'.format(len(domain.predicates)))
+    logging.info('{0} Actions parsed'.format(len(domain.actions)))
+    logging.info('{0} Objects parsed'.format(len(problem.objects)))
+    logging.info('{0} Constants parsed'.format(len(domain.constants)))
+
+    return problem
+
+def ground(problem):
+    """
+    unmodified pyperplan function
+    """
+    logging.info('Grounding start: {0}'.format(problem.name))
+    task = grounding.ground(problem)
+    logging.info('Grounding end: {0}'.format(problem.name))
+    logging.info('{0} Variables created'.format(len(task.facts)))
+    logging.info('{0} Operators created'.format(len(task.operators)))
+    return task
+
+def build_graph_causal(task, save_graph=True):
+    """ Build a causal graph from a tasl object, modified from original ptg.py
+    to use networkx structure
+
+    Args:
+        task: Task object
+        save_graph: Boolean, whether to save graph into .dot file
+    Returns:
+        graph: 
+            node attributes:
+                stuffs for plotting
+                op_name
+                manipuland
+                is_subgoal
+            edge attributes:
+                reason for edge (transition condition / co-occuring effects)
+                op_name 
+
+    """
+    graph = nx.DiGraph()
+
 
 
