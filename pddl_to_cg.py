@@ -33,6 +33,16 @@ import tools
 
 NUMBER = re.compile(r'\d+')
 
+class CGNodes(object):
+    def CGNodes(self):
+        pass
+
+    def __eq__(self):
+        return 0
+
+    def __hash__(self):
+        return 0
+
 def validator_available():
     """
     unmodified pyperplan function
@@ -73,7 +83,7 @@ def ground(problem):
     logging.info('{0} Operators created'.format(len(task.operators)))
     return task
 
-def build_graph_causal(task, save_graph=True):
+def build_graph_causal(domain, task, save_graph=True):
     """ Build a causal graph from a tasl object, modified from original ptg.py
     to use networkx structure
 
@@ -93,6 +103,36 @@ def build_graph_causal(task, save_graph=True):
 
     """
     graph = nx.DiGraph()
+
+    action_dict = {}
+    for a in domain.actions:
+        for op in task.operators:
+            if a in op.name:
+                action_dict[op.name] = a
+    
+    pred_dict = {}
+    for p in domain.predicates:
+        for f in task.facts:
+            if p in f:
+                pred_dict[f] = p
+    
+    for op in task.operators:
+        for prop in task.facts:
+            if prop in op.preconditions:
+                if pred_dict.get(prop) not in graph.nodes:
+                    graph.add_node(pred_dict.get(prop))
+                if action_dict.get(op.name) not in graph.nodes:
+                    graph.add_node(action_dict.get(op.name))
+                
+                graph.add_edge(pred_dict.get(prop), action_dict.get(op.name))
+            
+            elif prop in op.add_effects or prop in op.del_effects:
+                if pred_dict.get(prop) not in graph.nodes:
+                    graph.add_node(pred_dict.get(prop))
+                if action_dict.get(op.name) not in graph.nodes:
+                    graph.add_node(action_dict.get(op.name))
+                
+                graph.add_edge(pred_dict.get(prop), action_dict.get(op.name))
 
 
 
