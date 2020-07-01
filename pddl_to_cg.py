@@ -22,6 +22,7 @@ import re
 import logging
 import networkx as nx
 import pygraphviz as pgv
+from matplotlib import pyplot as plt
 
 try:
     import argparse
@@ -30,6 +31,7 @@ except ImportError:
 
 from pddl.parser import Parser
 import tools
+import grounding_orig as grounding
 
 NUMBER = re.compile(r'\d+')
 
@@ -70,7 +72,7 @@ def parse(domain_file, problem_file):
     logging.info('{0} Objects parsed'.format(len(problem.objects)))
     logging.info('{0} Constants parsed'.format(len(domain.constants)))
 
-    return problem
+    return (domain, problem)
 
 def ground(problem):
     """
@@ -83,13 +85,15 @@ def ground(problem):
     logging.info('{0} Operators created'.format(len(task.operators)))
     return task
 
-def build_graph_causal(domain, task, save_graph=True):
+def build_graph_causal(task, show_graph=True, add_cooccuring_edges=True):
     """ Build a causal graph from a tasl object, modified from original ptg.py
     to use networkx structure
 
     Args:
         task: Task object
-        save_graph: Boolean, whether to save graph into .dot file
+        show_graph: Boolean, whether to show graph
+        add_cooccuring_edges: Boolean, whether to add causal edges due to 
+            co-occuring effects
     Returns:
         graph: 
             node attributes:
@@ -104,35 +108,55 @@ def build_graph_causal(domain, task, save_graph=True):
     """
     graph = nx.DiGraph()
 
-    action_dict = {}
-    for a in domain.actions:
-        for op in task.operators:
-            if a in op.name:
-                action_dict[op.name] = a
-    
-    pred_dict = {}
-    for p in domain.predicates:
-        for f in task.facts:
-            if p in f:
-                pred_dict[f] = p
-    
-    for op in task.operators:
-        for prop in task.facts:
-            if prop in op.preconditions:
-                if pred_dict.get(prop) not in graph.nodes:
-                    graph.add_node(pred_dict.get(prop))
-                if action_dict.get(op.name) not in graph.nodes:
-                    graph.add_node(action_dict.get(op.name))
-                
-                graph.add_edge(pred_dict.get(prop), action_dict.get(op.name))
-            
-            elif prop in op.add_effects or prop in op.del_effects:
-                if pred_dict.get(prop) not in graph.nodes:
-                    graph.add_node(pred_dict.get(prop))
-                if action_dict.get(op.name) not in graph.nodes:
-                    graph.add_node(action_dict.get(op.name))
-                
-                graph.add_edge(pred_dict.get(prop), action_dict.get(op.name))
+    for u in task.facts:
+        for v in task.facts:
+            for op in task.operators:
+                if u==v:
+                    continue
+                elif u in op.preconditions:
+                    if v in op.add_effects or v in op.del_effects:
+                        if u not in graph.nodes:
+                            graph.add_node(u)
+                        if v not in graph.nodes:
+                            graph.add_node(v)
+                        if u in op.add_effects or u in op.del_effects:
+                            graph.add_edge(u, v, reason="transition & cooccuring")
+                        else:
+                            graph.add_edge(u, v, reason="transition")
+                        
+                        if u in task.goals:
+                            graph.nodes[u]["color"] = "red"
+
+                        if v in task.goals:
+                            graph.nodes[v]["color"] = "red"
 
 
+                elif add_cooccuring_edges and (u in op.add_effects or u in op.del_effects):
+                    if v in op.add_effects or v in op.del_effects:
+                        if u not in graph.nodes:
+                            graph.add_node(u)
+                        if v not in graph.nodes:
+                            graph.add_node(v)
+
+                        graph.add_edge(u, v, reason="cooccuring") 
+
+    if show_graph:
+        plt.subplot(111)
+        nx.draw(graph, with_labels=True)
+        nx.draw(graph, node_color="red" ,with_labels=True)
+        plt.show()
+
+    return graph
+
+def main():
+    domain_file = "/home/zhigen/code/pddl_planning/examples/strips/conveyor_belt/domain_coupled.pddl"
+    problem_file = "/home/zhigen/code/pddl_planning/examples/strips/conveyor_belt/2obj_coupled.pddl"       
+
+    domain, problem = parse(domain_file, problem_file)
+    task = ground(problem)
+
+    graph = build_graph_causal(task)
+
+if __name__=="__main__":
+    main()
 
