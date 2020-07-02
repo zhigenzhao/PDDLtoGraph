@@ -20,6 +20,7 @@ import sys
 import os
 import re
 import logging
+import copy
 import networkx as nx
 import pygraphviz as pgv
 from matplotlib import pyplot as plt
@@ -85,7 +86,7 @@ def ground(problem):
     logging.info('{0} Operators created'.format(len(task.operators)))
     return task
 
-def build_graph_causal(task, show_graph=True, add_cooccuring_edges=True):
+def build_graph_causal(task, show=True, add_cooccuring_edges=True):
     """ Build a causal graph from a tasl object, modified from original ptg.py
     to use networkx structure
 
@@ -117,19 +118,14 @@ def build_graph_causal(task, show_graph=True, add_cooccuring_edges=True):
                     if v in op.add_effects or v in op.del_effects:
                         if u not in graph.nodes:
                             graph.add_node(u)
+                            print(u)
                         if v not in graph.nodes:
                             graph.add_node(v)
+                            print(v)
                         if u in op.add_effects or u in op.del_effects:
                             graph.add_edge(u, v, reason="transition & cooccuring")
                         else:
                             graph.add_edge(u, v, reason="transition")
-                        
-                        if u in task.goals:
-                            graph.nodes[u]["color"] = "red"
-
-                        if v in task.goals:
-                            graph.nodes[v]["color"] = "red"
-
 
                 elif add_cooccuring_edges and (u in op.add_effects or u in op.del_effects):
                     if v in op.add_effects or v in op.del_effects:
@@ -140,13 +136,27 @@ def build_graph_causal(task, show_graph=True, add_cooccuring_edges=True):
 
                         graph.add_edge(u, v, reason="cooccuring") 
 
-    if show_graph:
-        plt.subplot(111)
-        nx.draw(graph, with_labels=True)
-        nx.draw(graph, node_color="red" ,with_labels=True)
-        plt.show()
+    if show:
+        show_graph(graph)
 
     return graph
+
+def cut_graph(G, node_list):
+    graph = copy.deepcopy(G)
+
+    for node in node_list:
+        print("Removing node", node)
+        try:
+            graph.remove_node(node)
+        except:
+            print("Warning: node not found", node)
+
+    return graph
+
+def show_graph(graph):
+    plt.subplot(111)
+    nx.draw(graph, with_labels=True)
+    plt.show()
 
 def main():
     domain_file = "/home/zhigen/code/pddl_planning/examples/strips/conveyor_belt/domain_coupled.pddl"
@@ -155,7 +165,14 @@ def main():
     domain, problem = parse(domain_file, problem_file)
     task = ground(problem)
 
-    graph = build_graph_causal(task)
+    graph = build_graph_causal(task, add_cooccuring_edges=True)
+
+    clean_graph = cut_graph(graph, [
+        "(free iiwa)", 
+        "(unblocked box_0 box_0)",
+        "(unblocked box_1 box_1)",
+        ])
+    show_graph(clean_graph)
 
 if __name__=="__main__":
     main()
