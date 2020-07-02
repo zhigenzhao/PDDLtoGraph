@@ -30,6 +30,9 @@ try:
 except ImportError:
     from external import argparse
 
+PTGPATH = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(PTGPATH)
+
 from pddl.parser import Parser
 import tools
 import grounding_orig as grounding
@@ -118,10 +121,8 @@ def build_graph_causal(task, show=True, add_cooccuring_edges=True):
                     if v in op.add_effects or v in op.del_effects:
                         if u not in graph.nodes:
                             graph.add_node(u)
-                            print(u)
                         if v not in graph.nodes:
                             graph.add_node(v)
-                            print(v)
                         if u in op.add_effects or u in op.del_effects:
                             graph.add_edge(u, v, reason="transition & cooccuring")
                         else:
